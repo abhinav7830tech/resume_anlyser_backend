@@ -1,0 +1,14 @@
+[project]
+name = "resume-anlyser"
+version = "0.1.0"
+description = "Add your description here"
+readme = "README.md"
+requires-python = ">=3.13"
+dependencies = [
+    "fastapi>=0.129.0",
+    "google-genai>=1.63.0",
+    "pypdf>=3.0.0",
+    "python-dotenv>=1.2.1",
+    "python-multipart>=0.0.22",
+    "uvicorn>=0.40.0",
+]
