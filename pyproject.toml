@@ -5,10 +5,17 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "beanie>=2.0.1",
     "fastapi>=0.129.0",
     "google-genai>=1.63.0",
+    "mongoose>=0.0.1",
+    "motor>=3.7.1",
     "pypdf>=3.0.0",
     "python-dotenv>=1.2.1",
     "python-multipart>=0.0.22",
     "uvicorn>=0.40.0",
+    "pyjwt>=2.9.0",
+    "bcrypt>=4.2.0",
+    "pydantic>=2.10.0",
+    "pymongo[bson]>=4.16.0",
 ]
