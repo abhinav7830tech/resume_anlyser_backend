@@ -29,9 +29,17 @@ async def lifespan(app: FastAPI):
 app = FastAPI(title="Resume & Interview Assistant", lifespan=lifespan)
 
 # CORS — Frontend ko Backend se baat karne do
+# CORS — Frontend ko Backend se baat karne do
+origins = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "https://resume-frontend-lm4q.vercel.app",
+]
+
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],
+    allow_origins=origins,
+    allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
 )
