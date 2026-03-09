@@ -12,140 +12,195 @@ if not API_KEY:
 
 genai.configure(api_key=API_KEY)
 
-MODEL = genai.GenerativeModel("gemini-1.5-flash-latest")
+MODEL = genai.GenerativeModel("gemini-2.0-flash")
+
+
+def clean_json(text):
+    text = text.strip()
+
+    if "```" in text:
+        text = text.split("```")[1]
+        text = text.replace("json", "")
+
+    return text.strip()
 
 
 def extract_skills_and_feedback(resume_text):
 
     prompt = f"""
-    Analyze the resume below and return ONLY valid JSON.
+You are an expert ATS resume evaluator.
 
-    Resume Text:
-    {resume_text[:4000]}
+Analyze the resume and return ONLY valid JSON.
 
-    Return this JSON structure only:
-    {{
-        "personal_info": {{
-            "name": "candidate name or Unknown",
-            "email": "email or Not found",
-            "phone": "phone or Not found"
-        }},
-        "skills": {{
-            "technical": ["skill1","skill2"],
-            "soft": ["skill1","skill2"],
-            "tools": ["tool1","tool2"]
-        }},
-        "experience_years": "example: 2 years or Fresher",
-        "education": "highest degree",
-        "ats_score": 7,
-        "ats_score_reason": "reason",
-        "strengths": ["s1","s2","s3"],
-        "weaknesses": ["w1","w2"],
-        "improvements": ["i1","i2","i3"],
-        "overall_rating": 7,
-        "summary": "2-3 line summary"
-    }}
-    """
+Job analysis should include ATS score, strengths, weaknesses and improvements.
+
+Resume:
+{resume_text[:4000]}
+
+Return JSON in this exact format:
+
+{{
+"personal_info": {{
+"name": "candidate name or Unknown",
+"email": "email or Not found",
+"phone": "phone or Not found"
+}},
+"skills": {{
+"technical": [],
+"soft": [],
+"tools": []
+}},
+"experience_years": "",
+"education": "",
+"ats_score": 0,
+"ats_score_reason": "",
+"strengths": [],
+"weaknesses": [],
+"improvements": [],
+"overall_rating": 0,
+"summary": ""
+}}
+"""
 
     try:
         response = MODEL.generate_content(prompt)
-        raw = response.text.strip()
 
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
+        raw = clean_json(response.text)
 
-        return json.loads(raw)
+        data = json.loads(raw)
+
+        if "ats_score" not in data:
+            data["ats_score"] = 6
+
+        return data
 
     except Exception as e:
         print("AI Error:", e)
-        return {"error": "Analysis failed"}
+
+        return {
+            "personal_info": {
+                "name": "Unknown",
+                "email": "Not found",
+                "phone": "Not found"
+            },
+            "skills": {
+                "technical": [],
+                "soft": [],
+                "tools": []
+            },
+            "experience_years": "Unknown",
+            "education": "Unknown",
+            "ats_score": 5,
+            "ats_score_reason": "AI parsing fallback",
+            "strengths": [],
+            "weaknesses": [],
+            "improvements": [],
+            "overall_rating": 5,
+            "summary": "Analysis could not be generated."
+        }
 
 
 def generate_interview_questions(resume_text, job_role):
 
     prompt = f"""
-    Generate interview questions for a {job_role} role.
+You are a senior technical interviewer.
 
-    Resume:
-    {resume_text[:3000]}
+Generate interview questions for the role of {job_role}.
 
-    Return ONLY JSON:
-    {{
-        "technical":[{{"question":"Q1","hint":"hint"}}],
-        "behavioral":[{{"question":"Q1","hint":"hint"}}],
-        "situational":[{{"question":"Q1","hint":"hint"}}],
-        "hr":[{{"question":"Q1","hint":"hint"}}]
-    }}
-    """
+Resume:
+{resume_text[:3000]}
+
+Return ONLY JSON:
+
+{{
+"technical":[{{"question":"", "hint":""}}],
+"behavioral":[{{"question":"", "hint":""}}],
+"situational":[{{"question":"", "hint":""}}],
+"hr":[{{"question":"", "hint":""}}]
+}}
+"""
 
     try:
         response = MODEL.generate_content(prompt)
-        raw = response.text.strip()
 
-        if raw.startswith("```"):
-            raw = raw.split("```")[1]
-            if raw.startswith("json"):
-                raw = raw[4:]
+        raw = clean_json(response.text)
 
         return json.loads(raw)
 
     except Exception as e:
         print("AI Error:", e)
-        return {"error": "Question generation failed"}
+
+        return {
+            "technical": [],
+            "behavioral": [],
+            "situational": [],
+            "hr": []
+        }
 
 
 def chat_with_interviewer(resume_text, job_role, conversation_history, user_message, category="technical"):
 
-    system_context = f"""
-    You are a professional interviewer for a {job_role} role.
+    system_prompt = f"""
+You are a professional interviewer.
 
-    Resume:
-    {resume_text[:2000]}
+Role: {job_role}
 
-    Ask questions in English.
-    Ask one question at a time.
-    """
+Resume:
+{resume_text[:2000]}
+
+Interview category: {category}
+
+Ask one question at a time.
+Keep responses short.
+"""
 
     try:
+
         if not conversation_history:
-            prompt = system_context + "\nStart the interview with greeting and first question."
+
+            prompt = system_prompt + "\nStart the interview with greeting and first question."
+
         else:
+
             prompt = f"""
-            {system_context}
+{system_prompt}
 
-            Conversation so far:
-            {conversation_history}
+Conversation history:
+{conversation_history}
 
-            Candidate said: {user_message}
+Candidate answer:
+{user_message}
 
-            Continue the interview.
-            """
+Continue the interview.
+"""
 
         response = MODEL.generate_content(prompt)
-        return response.text
+
+        return response.text.strip()
 
     except Exception as e:
         print("Chat Error:", e)
+
         return "Interview error occurred."
 
 
 def chat_support(user_message):
 
     prompt = f"""
-    You are a support assistant for a Resume Interview App.
+You are a support assistant for an AI Resume Interview platform.
 
-    User query:
-    {user_message}
+User question:
+{user_message}
 
-    Give a helpful answer in English.
-    """
+Provide a helpful answer.
+"""
 
     try:
         response = MODEL.generate_content(prompt)
-        return response.text
+
+        return response.text.strip()
 
     except Exception as e:
         print("Support Chat Error:", e)
-        return "Sorry, something went wrong."
+
+        return "Support service unavailable."
