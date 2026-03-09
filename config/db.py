@@ -41,3 +41,8 @@ async def init_db():
 
 async def get_db():
     return _db
+
+from models.user import User
+
+async def get_user_by_id(user_id):
+    return await User.get(user_id)
