@@ -1,230 +1,151 @@
-from google import genai
-from google.genai import types
 import os
 import json
+import google.generativeai as genai
 from dotenv import load_dotenv
 
 load_dotenv()
 
-api_key = os.getenv("GEMINI_API_KEY")
-if not api_key:
-    raise ValueError(
-        "GEMINI_API_KEY not found in environment variables. Please add it to .env file."
-    )
+API_KEY = os.getenv("GEMINI_API_KEY")
 
-client = genai.Client(api_key=api_key)
-MODEL = "gemini-2.5-flash"  # Free model
+if not API_KEY:
+    raise ValueError("GEMINI_API_KEY not found in environment variables")
+
+genai.configure(api_key=API_KEY)
+
+MODEL = genai.GenerativeModel("gemini-1.5-flash")
 
 
 def extract_skills_and_feedback(resume_text):
-    """
-    Resume se skills nikalo aur feedback do — ek hi API call mein response in English
-    """
 
     prompt = f"""
-    Neeche ek resume hai. Uska analysis karo aur SIRF valid JSON return karo.
-    
+    Analyze the resume below and return ONLY valid JSON.
+
     Resume Text:
     {resume_text[:4000]}
-    
-    Ye JSON structure return karo (kuch aur mat likho, sirf JSON):
+
+    Return this JSON structure only:
     {{
         "personal_info": {{
-            "name": "candidate ka naam ya Unknown",
-            "email": "email ya Not found",
-            "phone": "phone ya Not found"
+            "name": "candidate name or Unknown",
+            "email": "email or Not found",
+            "phone": "phone or Not found"
         }},
         "skills": {{
-            "technical": ["skill1", "skill2"],
-            "soft": ["skill1", "skill2"],
-            "tools": ["tool1", "tool2"]
+            "technical": ["skill1","skill2"],
+            "soft": ["skill1","skill2"],
+            "tools": ["tool1","tool2"]
         }},
-        "experience_years": "e.g. 2 years ya Fresher",
+        "experience_years": "example: 2 years or Fresher",
         "education": "highest degree",
         "ats_score": 7,
-        "ats_score_reason": "kyun ye score diya",
-        "strengths": ["strength1", "strength2", "strength3"],
-        "weaknesses": ["weakness1", "weakness2"],
-        "improvements": ["suggestion1", "suggestion2", "suggestion3"],
+        "ats_score_reason": "reason",
+        "strengths": ["s1","s2","s3"],
+        "weaknesses": ["w1","w2"],
+        "improvements": ["i1","i2","i3"],
         "overall_rating": 7,
-        "summary": "2-3 line ka honest resume summary"
+        "summary": "2-3 line summary"
     }}
     """
 
     try:
-        response = client.models.generate_content(
-            model=MODEL,
-            contents=prompt,
-        )
-        raw = response.text
-        if not raw:
-            return {"error": "Empty response from AI"}
+        response = MODEL.generate_content(prompt)
+        raw = response.text.strip()
 
-        raw = raw.strip()
         if raw.startswith("```"):
             raw = raw.split("```")[1]
             if raw.startswith("json"):
                 raw = raw[4:]
 
-        return json.loads(raw.strip())
+        return json.loads(raw)
 
-    except json.JSONDecodeError as e:
-        print(f"JSON Parse Error: {e}")
-        return {"error": "Failed to parse AI response"}
     except Exception as e:
-        print(f"AI Error: {e}")
-        return {"error": "Analysis fail ho gayi, dobara try karo"}
+        print("AI Error:", e)
+        return {"error": "Analysis failed"}
 
 
 def generate_interview_questions(resume_text, job_role):
-    """
-    Resume aur job role ke basis pe interview questions banao
-    Give the response in English do not response in the Hindi
-    """
 
     prompt = f"""
-    Ek {job_role} position ke liye interview questions banao.
-    
-    Candidate ka resume:
+    Generate interview questions for a {job_role} role.
+
+    Resume:
     {resume_text[:3000]}
-    
-    SIRF JSON return karo:
+
+    Return ONLY JSON:
     {{
-        "technical": [
-            {{"question": "Q1", "hint": "iska answer mein kya expected hai"}},
-            {{"question": "Q2", "hint": "hint"}},
-            {{"question": "Q3", "hint": "hint"}}
-        ],
-        "behavioral": [
-            {{"question": "Q1", "hint": "hint"}},
-            {{"question": "Q2", "hint": "hint"}}
-        ],
-        "situational": [
-            {{"question": "Q1", "hint": "hint"}},
-            {{"question": "Q2", "hint": "hint"}}
-        ],
-        "hr": [
-            {{"question": "Q1", "hint": "hint"}},
-            {{"question": "Q2", "hint": "hint"}}
-        ]
+        "technical":[{{"question":"Q1","hint":"hint"}}],
+        "behavioral":[{{"question":"Q1","hint":"hint"}}],
+        "situational":[{{"question":"Q1","hint":"hint"}}],
+        "hr":[{{"question":"Q1","hint":"hint"}}]
     }}
     """
 
     try:
-        response = client.models.generate_content(
-            model=MODEL,
-            contents=prompt,
-        )
-        raw = response.text
-        if not raw:
-            return {"error": "Empty response from AI"}
+        response = MODEL.generate_content(prompt)
+        raw = response.text.strip()
 
-        raw = raw.strip()
         if raw.startswith("```"):
             raw = raw.split("```")[1]
             if raw.startswith("json"):
                 raw = raw[4:]
 
-        return json.loads(raw.strip())
+        return json.loads(raw)
 
-    except json.JSONDecodeError as e:
-        print(f"JSON Parse Error: {e}")
-        return {"error": "Questions generate nahi hue"}
     except Exception as e:
-        print(f"Error: {e}")
-        return {"error": "Questions generate nahi hue"}
+        print("AI Error:", e)
+        return {"error": "Question generation failed"}
 
 
-def chat_with_interviewer(
-    resume_text, job_role, conversation_history, user_message, category="technical"
-):
+def chat_with_interviewer(resume_text, job_role, conversation_history, user_message, category="technical"):
+
+    system_context = f"""
+    You are a professional interviewer for a {job_role} role.
+
+    Resume:
+    {resume_text[:2000]}
+
+    Ask questions in English.
+    Ask one question at a time.
     """
-    PART 2 — Live AI Interview
-    Ye function real-time interview conduct karta hai
 
-    conversation_history: list of {"role": "user/model", "parts": ["message"]}
-    """
+    try:
+        if not conversation_history:
+            prompt = system_context + "\nStart the interview with greeting and first question."
+        else:
+            prompt = f"""
+            {system_context}
 
-    category_prompts = {
-        "technical": "Ask questions about technical skills, programming languages, frameworks, projects, and problem-solving abilities.",
-        "behavioral": "Ask questions about past experiences, teamwork, leadership, conflict resolution, and soft skills.",
-        "situational": "Ask hypothetical scenario-based questions about how the candidate would handle specific situations.",
-        "hr": "Ask questions about salary expectations, career goals, strengths, weaknesses, and cultural fit.",
-    }
+            Conversation so far:
+            {conversation_history}
 
-    category_prompt = category_prompts.get(category, category_prompts["technical"])
+            Candidate said: {user_message}
 
-    # System context — AI ko interviewer banao
-    system_context = f"""Tu ek professional interviewer hai jo {job_role} position ke liye interview le raha hai.
+            Continue the interview.
+            """
 
-Candidate ka resume:
-{resume_text[:2000]}
-
-Interview Category: {category.upper()}
-{category_prompt}
-
-Rules:
-1. Ek baar mein sirf EK question poochh
-2. Candidate ke jawab pe react karo (achha jawab = appreciate, incomplete = gently probe karo)
-3. Professional but friendly tone rakho
-4. 8-10 questions ke baad interview wrap up karo
-5. End mein honest performance feedback do
-6. Hinglish mein mat bolo — proper English mein interview lo"""
-
-    # Pehla message hai to interviewer start kare
-    if not conversation_history:
-        first_prompt = f"""{system_context}
-
-Interview shuru karo. Pehle candidate ko welcome karo,
-apna introduction do (interviewer ke roop mein),
-aur pehla warm-up question poochho."""
-
-        response = client.models.generate_content(
-            model=MODEL,
-            contents=first_prompt,
-        )
+        response = MODEL.generate_content(prompt)
         return response.text
 
-    # Ongoing conversation — build complete conversation with system context
-    all_messages = [
-        types.Content(role="user", parts=[types.Part(text=system_context)]),
-    ]
-    all_messages.extend(
-        [
-            types.Content(role=msg["role"], parts=[types.Part(text=msg["parts"][0])])
-            for msg in conversation_history
-        ]
-    )
-
-    # Add user message
-    user_content = f"""Candidate ne abhi ye kaha: "{user_message}"
-
-Iska jawab do aur interview continue karo."""
-
-    response = client.models.generate_content(
-        model=MODEL,
-        contents=all_messages + [user_content],
-    )
-    return response.text
+    except Exception as e:
+        print("Chat Error:", e)
+        return "Interview error occurred."
 
 
 def chat_support(user_message):
-    """
-    General support chat - Answer user queries about the app
-    """
-    system_context = """Tu ek helpful customer support assistant hai jo Resume & Interview App ke baare mein information deta hai.
 
-Saaf English mein jawab do.
-Agar question app ke features ke baare mein hai to explain karo.
-General career advice bhi de sakta hai.
-Mukhta: concise aur helpful answers do."""
+    prompt = f"""
+    You are a support assistant for a Resume Interview App.
+
+    User query:
+    {user_message}
+
+    Give a helpful answer in English.
+    """
 
     try:
-        response = client.models.generate_content(
-            model=MODEL,
-            contents=f"{system_context}\n\nUser query: {user_message}",
-        )
+        response = MODEL.generate_content(prompt)
         return response.text
+
     except Exception as e:
-        print(f"Chat Error: {e}")
-        return "Sorry, I'm having trouble connecting. Please try again."
+        print("Support Chat Error:", e)
+        return "Sorry, something went wrong."
