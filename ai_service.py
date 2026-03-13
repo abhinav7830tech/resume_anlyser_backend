@@ -25,14 +25,21 @@ def clean_json(text):
     return text.strip()
 
 
-def extract_skills_and_feedback(resume_text):
+def extract_skills_and_feedback(resume_text, job_role="Software Engineer"):
 
     prompt = f"""
-You are an expert ATS resume evaluator.
+You are an expert ATS (Applicant Tracking System) resume evaluator.
 
-Analyze the resume and return ONLY valid JSON.
+Analyze the resume against the target job role: {job_role}
 
-Job analysis should include ATS score, strengths, weaknesses and improvements.
+Return ONLY valid JSON with a dynamically calculated ATS score based on the following criteria:
+
+1. KEYWORD MATCH (25 points): Match resume keywords with common {job_role} job requirements
+2. SKILLS RELEVANCE (25 points): Technical skills match the job role
+3. EXPERIENCE ALIGNMENT (25 points): Work experience matches job requirements
+4. ATS READABILITY (25 points): Clean formatting, proper sections, no tables/graphics
+
+Calculate score dynamically - do NOT use a fixed value. Consider the actual resume content.
 
 Resume:
 {resume_text[:4000]}
@@ -60,6 +67,8 @@ Return JSON in this exact format:
 "overall_rating": 0,
 "summary": ""
 }}
+
+IMPORTANT: Calculate ats_score based on actual resume content analysis. Score should vary based on resume quality and job role match.
 """
 
     try:
@@ -81,13 +90,9 @@ Return JSON in this exact format:
             "personal_info": {
                 "name": "Unknown",
                 "email": "Not found",
-                "phone": "Not found"
+                "phone": "Not found",
             },
-            "skills": {
-                "technical": [],
-                "soft": [],
-                "tools": []
-            },
+            "skills": {"technical": [], "soft": [], "tools": []},
             "experience_years": "Unknown",
             "education": "Unknown",
             "ats_score": 5,
@@ -96,7 +101,7 @@ Return JSON in this exact format:
             "weaknesses": [],
             "improvements": [],
             "overall_rating": 5,
-            "summary": "Analysis could not be generated."
+            "summary": "Analysis could not be generated.",
         }
 
 
@@ -130,15 +135,12 @@ Return ONLY JSON:
     except Exception as e:
         print("AI Error:", e)
 
-        return {
-            "technical": [],
-            "behavioral": [],
-            "situational": [],
-            "hr": []
-        }
+        return {"technical": [], "behavioral": [], "situational": [], "hr": []}
 
 
-def chat_with_interviewer(resume_text, job_role, conversation_history, user_message, category="technical"):
+def chat_with_interviewer(
+    resume_text, job_role, conversation_history, user_message, category="technical"
+):
 
     system_prompt = f"""
 You are a professional interviewer.
@@ -155,13 +157,13 @@ Keep responses short.
 """
 
     try:
-
         if not conversation_history:
-
-            prompt = system_prompt + "\nStart the interview with greeting and first question."
+            prompt = (
+                system_prompt
+                + "\nStart the interview with greeting and first question."
+            )
 
         else:
-
             prompt = f"""
 {system_prompt}
 

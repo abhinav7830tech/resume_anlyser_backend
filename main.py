@@ -126,7 +126,7 @@ async def analyze_resume(
         raise HTTPException(status_code=400, detail="Could not extract text from PDF")
 
     try:
-        analysis = extract_skills_and_feedback(resume_text)
+        analysis = extract_skills_and_feedback(resume_text, job_role)
         questions = generate_interview_questions(resume_text, job_role)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"AI analysis failed: {str(e)}")
